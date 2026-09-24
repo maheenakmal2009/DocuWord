@@ -8,7 +8,18 @@ import {
   ActiveFormats
 } from '../../types/document';
 import { queryActiveFormats, getSelectedTableContext } from '../../utils/editorCommands';
+import { performAutoCorrect } from '../../utils/autoCorrect';
+import {
+  highlightSpellingErrors,
+  clearSpellCheckHighlights,
+  checkWord,
+  getSpellSuggestions,
+  ignoreWordForSession,
+  addToCustomDictionary,
+  isSpellCheckEnabled
+} from '../../utils/spellCheck';
 import { TableToolsFloatingBar } from './TableToolsFloatingBar';
+import { SpellCheckContextMenu } from './SpellCheckContextMenu';
 
 interface DocumentPageProps {
   content: string;
@@ -83,6 +94,124 @@ export const DocumentPage: React.FC<DocumentPageProps> = ({
 
   const { widthPx, minHeightPx } = getPageDimensions();
 
+  // Spell Check Context Menu State
+  const [spellMenu, setSpellMenu] = useState<{
+    isOpen: boolean;
+    position: { x: number; y: number };
+    misspelledWord: string;
+    suggestions: string[];
+    targetSpan: HTMLElement | null;
+  }>({
+    isOpen: false,
+    position: { x: 0, y: 0 },
+    misspelledWord: '',
+    suggestions: [],
+    targetSpan: null
+  });
+
+  // Debounced real-time spell-checking for red wavy underlines
+  useEffect(() => {
+    if (!internalRef.current || !isSpellCheckEnabled()) return;
+
+    const timer = setTimeout(() => {
+      if (internalRef.current) {
+        highlightSpellingErrors(internalRef.current);
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [content]);
+
+  // Context Menu Handler for Misspelled Words
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isSpellCheckEnabled()) return;
+
+    // Check if right-clicked on a .spell-error element
+    const target = (e.target as HTMLElement).closest('.spell-error') as HTMLElement | null;
+    let clickedWord = '';
+    let clickedSpan: HTMLElement | null = null;
+
+    if (target) {
+      clickedWord = target.getAttribute('data-spell-word') || target.textContent || '';
+      clickedSpan = target;
+    } else {
+      // Fallback: check word under mouse coordinates
+      const range = document.caretRangeFromPoint
+        ? document.caretRangeFromPoint(e.clientX, e.clientY)
+        : null;
+      if (range && range.startContainer.nodeType === Node.TEXT_NODE) {
+        const text = range.startContainer.textContent || '';
+        const offset = range.startOffset;
+        const wordMatch = text.slice(0, offset).match(/\b[A-Za-z]+$/);
+        const wordAfter = text.slice(offset).match(/^[A-Za-z]+\b/);
+        if (wordMatch || wordAfter) {
+          const before = wordMatch ? wordMatch[0] : '';
+          const after = wordAfter ? wordAfter[0] : '';
+          const word = before + after;
+          if (!checkWord(word)) {
+            clickedWord = word;
+          }
+        }
+      }
+    }
+
+    if (clickedWord) {
+      e.preventDefault();
+      const suggestions = getSpellSuggestions(clickedWord);
+      setSpellMenu({
+        isOpen: true,
+        position: { x: e.clientX, y: e.clientY },
+        misspelledWord: clickedWord,
+        suggestions,
+        targetSpan: clickedSpan
+      });
+    }
+  };
+
+  // Replace misspelled word with selected correction
+  const handleSelectSuggestion = (suggestion: string) => {
+    if (spellMenu.targetSpan) {
+      const textNode = document.createTextNode(suggestion);
+      spellMenu.targetSpan.replaceWith(textNode);
+    } else if (internalRef.current) {
+      const span = internalRef.current.querySelector(
+        `.spell-error[data-spell-word="${spellMenu.misspelledWord}"]`
+      );
+      if (span) {
+        span.replaceWith(document.createTextNode(suggestion));
+      }
+    }
+
+    if (internalRef.current) {
+      onChange(internalRef.current.innerHTML);
+      highlightSpellingErrors(internalRef.current);
+    }
+  };
+
+  // Ignore word for session
+  const handleIgnoreWord = (word: string) => {
+    ignoreWordForSession(word);
+    if (internalRef.current) {
+      const spans = internalRef.current.querySelectorAll(
+        `.spell-error[data-spell-word="${word}"]`
+      );
+      spans.forEach((s) => s.replaceWith(document.createTextNode(s.textContent || word)));
+      onChange(internalRef.current.innerHTML);
+    }
+  };
+
+  // Add word to persistent custom dictionary
+  const handleAddToDictionary = (word: string) => {
+    addToCustomDictionary(word);
+    if (internalRef.current) {
+      const spans = internalRef.current.querySelectorAll(
+        `.spell-error[data-spell-word="${word}"]`
+      );
+      spans.forEach((s) => s.replaceWith(document.createTextNode(s.textContent || word)));
+      onChange(internalRef.current.innerHTML);
+    }
+  };
+
   // Handle Input Changes
   const handleInput = () => {
     if (internalRef.current) {
@@ -111,43 +240,37 @@ export const DocumentPage: React.FC<DocumentPageProps> = ({
     };
   }, []);
 
-  // Keyboard Shortcuts
+  // Keyboard Shortcuts & Auto-Correct (local to editable document)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     const modifier = isMac ? e.metaKey : e.ctrlKey;
 
-    if (modifier) {
-      switch (e.key.toLowerCase()) {
-        case 's':
-          e.preventDefault();
-          try {
-            localStorage.setItem('docuword_autosave_title', documentTitle);
-            localStorage.setItem('docuword_autosave_content', content);
-          } catch (err) {
-            console.error(err);
-          }
-          break;
-        case 'p':
-          e.preventDefault();
-          window.print();
-          break;
-        case 'f':
-          e.preventDefault();
-          onToggleFindReplace();
-          break;
-        case 'k':
-          e.preventDefault();
-          onOpenInsertLink();
-          break;
-        default:
-          break;
-      }
+    if (modifier && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      onOpenInsertLink();
+      return;
     }
 
     // Handle Tab key inside contenteditable
     if (e.key === 'Tab') {
       e.preventDefault();
       document.execCommand('insertHTML', false, '&emsp;');
+      return;
+    }
+
+    // Auto-Correct: monitor typos and abbreviations on Space, Enter, or punctuation
+    const triggers = [' ', '.', ',', '!', '?', ';', ':', ')', '>'];
+    if (!modifier && (triggers.includes(e.key) || e.key === 'Enter')) {
+      const corrected = performAutoCorrect(e.key);
+      if (corrected) {
+        if (e.key !== 'Enter') {
+          e.preventDefault();
+        }
+        if (internalRef.current) {
+          onChange(internalRef.current.innerHTML);
+        }
+        return;
+      }
     }
   };
 
@@ -251,11 +374,24 @@ export const DocumentPage: React.FC<DocumentPageProps> = ({
             suppressContentEditableWarning
             onInput={handleInput}
             onKeyDown={handleKeyDown}
+            onContextMenu={handleContextMenu}
             className="docuword-content relative z-10 min-h-[700px] outline-none text-[#1e293b]"
             style={{
               fontFamily: 'Calibri, -apple-system, sans-serif',
               fontSize: '11pt'
             }}
+          />
+
+          {/* Spell Check Context Menu */}
+          <SpellCheckContextMenu
+            isOpen={spellMenu.isOpen}
+            position={spellMenu.position}
+            misspelledWord={spellMenu.misspelledWord}
+            suggestions={spellMenu.suggestions}
+            onSelectSuggestion={handleSelectSuggestion}
+            onIgnoreWord={handleIgnoreWord}
+            onAddToDictionary={handleAddToDictionary}
+            onClose={() => setSpellMenu((prev) => ({ ...prev, isOpen: false }))}
           />
 
           {/* Footer Area (Print Layout only) */}

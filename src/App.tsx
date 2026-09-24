@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 import { TitleBar } from './components/Ribbon/TitleBar';
 import { RibbonTabs } from './components/Ribbon/RibbonTabs';
 import { Ruler } from './components/Editor/Ruler';
@@ -20,6 +21,7 @@ import { InsertLinkModal } from './components/Modals/InsertLinkModal';
 import { SpecialSymbolsModal } from './components/Modals/SpecialSymbolsModal';
 import { PageSetupModal } from './components/Modals/PageSetupModal';
 import { FileBackstageModal } from './components/Modals/FileBackstageModal';
+import { AutoCorrectModal } from './components/Modals/AutoCorrectModal';
 
 import { PRESET_DOCUMENTS } from './templates/presetDocuments';
 import {
@@ -106,8 +108,45 @@ export default function App() {
   const [isInsertLinkOpen, setIsInsertLinkOpen] = useState(false);
   const [isSpecialSymbolsOpen, setIsSpecialSymbolsOpen] = useState(false);
   const [isPageSetupOpen, setIsPageSetupOpen] = useState(false);
+  const [isAutoCorrectOpen, setIsAutoCorrectOpen] = useState(false);
+  const [saveToast, setSaveToast] = useState(false);
 
   const editorRef = useRef<HTMLDivElement | null>(null);
+
+  // Global keyboard shortcut listener for Ctrl+S (Save), Ctrl+P (Print), Ctrl+F (Find)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const modifier = isMac ? e.metaKey : e.ctrlKey;
+
+      if (modifier) {
+        const key = e.key.toLowerCase();
+        if (key === 's') {
+          e.preventDefault();
+          try {
+            const currentContent = editorRef.current ? editorRef.current.innerHTML : content;
+            localStorage.setItem('docuword_autosave_title', documentTitle);
+            localStorage.setItem('docuword_autosave_content', currentContent);
+            setSaveToast(true);
+            setTimeout(() => setSaveToast(false), 2200);
+          } catch (err) {
+            console.error('Failed to save document:', err);
+          }
+        } else if (key === 'p') {
+          e.preventDefault();
+          window.print();
+        } else if (key === 'f') {
+          e.preventDefault();
+          setShowFindReplace((prev) => !prev);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, [documentTitle, content]);
 
   // Load Autosaved draft if present
   useEffect(() => {
@@ -232,6 +271,7 @@ export default function App() {
         onUpdateWatermark={setWatermark}
         onOpenPageSetup={() => setIsPageSetupOpen(true)}
         onOpenWordCount={() => setIsWordCountOpen(true)}
+        onOpenAutoCorrect={() => setIsAutoCorrectOpen(true)}
         showComments={showComments}
         onToggleComments={() => setShowComments(!showComments)}
         commentCount={comments.filter((c) => !c.resolved).length}
@@ -317,6 +357,7 @@ export default function App() {
         wordCount={wordCount}
         charCount={charCount}
         onOpenWordCount={() => setIsWordCountOpen(true)}
+        onOpenAutoCorrect={() => setIsAutoCorrectOpen(true)}
         viewMode={viewMode}
         onUpdateViewMode={setViewMode}
         zoomLevel={zoomLevel}
@@ -374,6 +415,19 @@ export default function App() {
         margins={margins}
         pageSize={pageSize}
       />
+
+      <AutoCorrectModal
+        isOpen={isAutoCorrectOpen}
+        onClose={() => setIsAutoCorrectOpen(false)}
+      />
+
+      {/* Global Shortcut Notification Toast */}
+      {saveToast && (
+        <div className="fixed bottom-10 right-6 z-50 bg-slate-900/95 text-white px-3.5 py-2 rounded-lg shadow-xl border border-slate-700/60 flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-2 duration-150">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>Document saved to local storage</span>
+        </div>
+      )}
     </div>
   );
 }

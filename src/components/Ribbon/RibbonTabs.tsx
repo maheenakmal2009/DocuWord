@@ -3,8 +3,11 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
 import { HomeTab } from './HomeTab';
 import { InsertTab } from './InsertTab';
 import { LayoutTab } from './LayoutTab';
+import { ReferencesTab } from './ReferencesTab';
 import { ReviewTab } from './ReviewTab';
 import { ViewTab } from './ViewTab';
+import { TableDesignTab } from './TableDesignTab';
+import { getSelectedTableContext } from '../../utils/editorCommands';
 import {
   ActiveFormats,
   Margins,
@@ -35,6 +38,7 @@ interface RibbonTabsProps {
   onUpdateWatermark: (watermark: WatermarkConfig) => void;
   onOpenPageSetup: () => void;
   onOpenWordCount: () => void;
+  onOpenAutoCorrect?: () => void;
   showComments: boolean;
   onToggleComments: () => void;
   commentCount: number;
@@ -73,6 +77,7 @@ export const RibbonTabs: React.FC<RibbonTabsProps> = ({
   onUpdateWatermark,
   onOpenPageSetup,
   onOpenWordCount,
+  onOpenAutoCorrect,
   showComments,
   onToggleComments,
   commentCount,
@@ -89,8 +94,21 @@ export const RibbonTabs: React.FC<RibbonTabsProps> = ({
   zoomLevel,
   onUpdateZoom
 }) => {
-  const [activeTab, setActiveTab] = useState<'home' | 'insert' | 'layout' | 'review' | 'view'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'insert' | 'layout' | 'references' | 'table-design' | 'review' | 'view'>('home');
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
+  const [isInsideTable, setIsInsideTable] = useState(false);
+
+  // Check if cursor is inside a table
+  React.useEffect(() => {
+    const handleSelection = () => {
+      const { table } = getSelectedTableContext();
+      setIsInsideTable(!!table);
+    };
+    document.addEventListener('selectionchange', handleSelection);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelection);
+    };
+  }, []);
 
   return (
     <div className="bg-slate-50 border-b border-slate-300 shadow-xs select-none no-print ribbon-container">
@@ -146,6 +164,40 @@ export const RibbonTabs: React.FC<RibbonTabsProps> = ({
             }`}
           >
             Layout
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('references');
+              if (isRibbonCollapsed) setIsRibbonCollapsed(false);
+            }}
+            className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-all ${
+              activeTab === 'references' && !isRibbonCollapsed
+                ? 'border-blue-600 text-blue-700 font-semibold bg-slate-50'
+                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            References
+          </button>
+
+          {/* Table Design Tab (Word Style Contextual / Direct) */}
+          <button
+            onClick={() => {
+              setActiveTab('table-design');
+              if (isRibbonCollapsed) setIsRibbonCollapsed(false);
+            }}
+            className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-all flex items-center gap-1.5 ${
+              activeTab === 'table-design' && !isRibbonCollapsed
+                ? 'border-emerald-600 text-emerald-700 font-semibold bg-emerald-50/40'
+                : isInsideTable
+                ? 'border-transparent text-emerald-800 bg-emerald-50/50 hover:bg-emerald-100/60 font-semibold'
+                : 'border-transparent text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <span>Table Design</span>
+            {isInsideTable && (
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Table active" />
+            )}
           </button>
 
           <button
@@ -223,9 +275,18 @@ export const RibbonTabs: React.FC<RibbonTabsProps> = ({
             />
           )}
 
+          {activeTab === 'references' && (
+            <ReferencesTab />
+          )}
+
+          {activeTab === 'table-design' && (
+            <TableDesignTab />
+          )}
+
           {activeTab === 'review' && (
             <ReviewTab
               onOpenWordCount={onOpenWordCount}
+              onOpenAutoCorrect={onOpenAutoCorrect}
               onAddComment={onAddComment}
               showComments={showComments}
               onToggleComments={onToggleComments}

@@ -28,7 +28,7 @@ import {
   Code
 } from 'lucide-react';
 import { ActiveFormats } from '../../types/document';
-import { execDocCommand, formatBlock } from '../../utils/editorCommands';
+import { execDocCommand, formatBlock, applyHighlightColor } from '../../utils/editorCommands';
 
 interface HomeTabProps {
   activeFormats: ActiveFormats;
@@ -50,29 +50,43 @@ const FONT_FAMILIES = [
 const FONT_SIZES = ['8pt', '9pt', '10pt', '11pt', '12pt', '14pt', '16pt', '18pt', '20pt', '24pt', '28pt', '36pt', '48pt', '72pt'];
 
 const HIGHLIGHT_COLORS = [
-  { name: 'None', value: 'transparent' },
   { name: 'Yellow', value: '#fef08a' },
-  { name: 'Bright Green', value: '#bbf7d0' },
-  { name: 'Cyan Blue', value: '#bae6fd' },
-  { name: 'Magenta Pink', value: '#fbcfe8' },
-  { name: 'Orange', value: '#fed7aa' },
-  { name: 'Soft Gray', value: '#e2e8f0' }
+  { name: 'Bright Green', value: '#86efac' },
+  { name: 'Cyan Blue', value: '#67e8f9' },
+  { name: 'Magenta Pink', value: '#f472b6' },
+  { name: 'Sky Blue', value: '#60a5fa' },
+  { name: 'Bright Red', value: '#f87171' },
+  { name: 'Dark Blue', value: '#1e40af' },
+  { name: 'Teal', value: '#0d9488' },
+  { name: 'Forest Green', value: '#15803d' },
+  { name: 'Violet Purple', value: '#7e22ce' },
+  { name: 'Dark Red', value: '#991b1b' },
+  { name: 'Dark Yellow', value: '#ca8a04' },
+  { name: 'Dark Gray', value: '#64748b' },
+  { name: 'Light Gray', value: '#e2e8f0' },
+  { name: 'Black', value: '#0f172a' }
 ];
 
 const TEXT_COLORS = [
   { name: 'Black', value: '#0f172a' },
-  { name: 'Dark Gray', value: '#475569' },
+  { name: 'Dark Slate', value: '#334155' },
   { name: 'Navy Blue', value: '#1e3a8a' },
   { name: 'Royal Blue', value: '#2563eb' },
   { name: 'Forest Green', value: '#166534' },
+  { name: 'Emerald', value: '#059669' },
   { name: 'Crimson Red', value: '#dc2626' },
-  { name: 'Burnt Orange', value: '#c2410c' },
-  { name: 'Purple', value: '#7e22ce' }
+  { name: 'Rose Red', value: '#e11d48' },
+  { name: 'Burnt Orange', value: '#ea580c' },
+  { name: 'Warm Amber', value: '#d97706' },
+  { name: 'Purple', value: '#7e22ce' },
+  { name: 'Indigo', value: '#4f46e5' }
 ];
 
 export const HomeTab: React.FC<HomeTabProps> = ({ activeFormats, onToggleFindReplace }) => {
   const [selectedFont, setSelectedFont] = useState('Calibri, sans-serif');
   const [selectedSize, setSelectedSize] = useState('11pt');
+  const [currentHighlightColor, setCurrentHighlightColor] = useState('#fef08a');
+  const [currentTextColor, setCurrentTextColor] = useState('#dc2626');
   const [showHighlightMenu, setShowHighlightMenu] = useState(false);
   const [showColorMenu, setShowColorMenu] = useState(false);
   const [showSpacingMenu, setShowSpacingMenu] = useState(false);
@@ -114,11 +128,15 @@ export const HomeTab: React.FC<HomeTabProps> = ({ activeFormats, onToggleFindRep
   };
 
   const handleApplyHighlight = (color: string) => {
-    execDocCommand('hiliteColor', color);
+    if (color !== 'transparent') {
+      setCurrentHighlightColor(color);
+    }
+    applyHighlightColor(color);
     setShowHighlightMenu(false);
   };
 
   const handleApplyTextColor = (color: string) => {
+    setCurrentTextColor(color);
     execDocCommand('foreColor', color);
     setShowColorMenu(false);
   };
@@ -301,60 +319,123 @@ export const HomeTab: React.FC<HomeTabProps> = ({ activeFormats, onToggleFindRep
             <Superscript className="w-3.5 h-3.5" />
           </button>
 
-          {/* Highlight Color Picker */}
-          <div className="relative">
+          {/* Highlight Color Tool (Split button) */}
+          <div className="relative inline-flex items-center rounded hover:bg-slate-200/70 transition-colors">
             <button
-              onClick={() => setShowHighlightMenu(!showHighlightMenu)}
-              title="Text Highlight Color"
-              className="p-1 hover:bg-slate-100 rounded text-slate-700 flex items-center gap-0.5"
+              onClick={() => handleApplyHighlight(currentHighlightColor)}
+              title={`Highlight Color (${HIGHLIGHT_COLORS.find(c => c.value === currentHighlightColor)?.name || 'Yellow'})`}
+              className="p-1 flex flex-col items-center justify-center rounded-l hover:bg-slate-200"
             >
-              <Highlighter className="w-3.5 h-3.5 text-amber-500" />
-              <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
+              <Highlighter className="w-3.5 h-3.5 text-slate-800" />
+              <span
+                className="w-3.5 h-1 rounded-xs -mt-0.5 shadow-2xs"
+                style={{ backgroundColor: currentHighlightColor }}
+              />
+            </button>
+            <button
+              onClick={() => {
+                setShowHighlightMenu(!showHighlightMenu);
+                setShowColorMenu(false);
+              }}
+              title="Text Highlight Color Palette"
+              className="p-1 hover:bg-slate-200 rounded-r text-slate-500 hover:text-slate-800"
+            >
+              <ChevronDown className="w-2.5 h-2.5" />
             </button>
 
             {showHighlightMenu && (
               <div
-                className="absolute left-0 top-full mt-1 bg-white border border-slate-200 shadow-md rounded p-2 z-50 grid grid-cols-4 gap-1 w-32 animate-in fade-in"
-                onClick={() => setShowHighlightMenu(false)}
+                className="absolute left-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-md p-2.5 z-50 w-48 animate-in fade-in"
+                onClick={(e) => e.stopPropagation()}
               >
-                {HIGHLIGHT_COLORS.map((c) => (
-                  <button
-                    key={c.name}
-                    onClick={() => handleApplyHighlight(c.value)}
-                    title={c.name}
-                    className="w-5 h-5 rounded border border-slate-300 transition-transform hover:scale-110"
-                    style={{ backgroundColor: c.value === 'transparent' ? '#ffffff' : c.value }}
-                  />
-                ))}
+                <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 px-0.5">
+                  Text Highlight Color
+                </div>
+                <div className="grid grid-cols-5 gap-1.5 mb-2">
+                  {HIGHLIGHT_COLORS.map((c) => (
+                    <button
+                      key={c.name}
+                      onClick={() => handleApplyHighlight(c.value)}
+                      title={c.name}
+                      className={`w-6 h-6 rounded-xs border transition-transform hover:scale-110 flex items-center justify-center ${
+                        currentHighlightColor === c.value
+                          ? 'ring-2 ring-blue-500 border-white shadow-xs'
+                          : 'border-slate-300'
+                      }`}
+                      style={{ backgroundColor: c.value }}
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={() => handleApplyHighlight('transparent')}
+                  className="w-full text-left px-2 py-1.5 hover:bg-slate-100 rounded text-[11px] text-slate-700 font-medium flex items-center gap-2 border-t border-slate-100 pt-2"
+                >
+                  <span className="w-4 h-4 border border-slate-300 rounded-xs flex items-center justify-center text-rose-500 font-bold text-[10px]">
+                    /
+                  </span>
+                  <span>No Color (Remove Highlight)</span>
+                </button>
               </div>
             )}
           </div>
 
-          {/* Font Color Picker */}
-          <div className="relative">
+          {/* Font Color Tool (Split button) */}
+          <div className="relative inline-flex items-center rounded hover:bg-slate-200/70 transition-colors ml-0.5">
             <button
-              onClick={() => setShowColorMenu(!showColorMenu)}
+              onClick={() => handleApplyTextColor(currentTextColor)}
               title="Font Color"
-              className="p-1 hover:bg-slate-100 rounded text-slate-700 flex items-center gap-0.5"
+              className="p-1 flex flex-col items-center justify-center rounded-l hover:bg-slate-200"
             >
-              <Palette className="w-3.5 h-3.5 text-blue-600" />
-              <ChevronDown className="w-2.5 h-2.5 text-slate-400" />
+              <span className="font-serif font-bold text-xs leading-none text-slate-800">A</span>
+              <span
+                className="w-3.5 h-1 rounded-xs mt-0.5 shadow-2xs"
+                style={{ backgroundColor: currentTextColor }}
+              />
+            </button>
+            <button
+              onClick={() => {
+                setShowColorMenu(!showColorMenu);
+                setShowHighlightMenu(false);
+              }}
+              title="Font Color Palette"
+              className="p-1 hover:bg-slate-200 rounded-r text-slate-500 hover:text-slate-800"
+            >
+              <ChevronDown className="w-2.5 h-2.5" />
             </button>
 
             {showColorMenu && (
               <div
-                className="absolute left-0 top-full mt-1 bg-white border border-slate-200 shadow-md rounded p-2 z-50 grid grid-cols-4 gap-1 w-32 animate-in fade-in"
-                onClick={() => setShowColorMenu(false)}
+                className="absolute left-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-md p-2.5 z-50 w-48 animate-in fade-in"
+                onClick={(e) => e.stopPropagation()}
               >
-                {TEXT_COLORS.map((c) => (
-                  <button
-                    key={c.name}
-                    onClick={() => handleApplyTextColor(c.value)}
-                    title={c.name}
-                    className="w-5 h-5 rounded border border-slate-300 transition-transform hover:scale-110"
-                    style={{ backgroundColor: c.value }}
+                <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 px-0.5">
+                  Font Color
+                </div>
+                <div className="grid grid-cols-6 gap-1.5 mb-2">
+                  {TEXT_COLORS.map((c) => (
+                    <button
+                      key={c.name}
+                      onClick={() => handleApplyTextColor(c.value)}
+                      title={c.name}
+                      className={`w-5 h-5 rounded-xs border transition-transform hover:scale-110 ${
+                        currentTextColor === c.value
+                          ? 'ring-2 ring-blue-500 border-white shadow-xs'
+                          : 'border-slate-300'
+                      }`}
+                      style={{ backgroundColor: c.value }}
+                    />
+                  ))}
+                </div>
+                <div className="border-t border-slate-100 pt-2 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-600 font-medium">Custom Color</span>
+                  <input
+                    type="color"
+                    value={currentTextColor}
+                    onChange={(e) => handleApplyTextColor(e.target.value)}
+                    className="w-6 h-6 rounded border border-slate-300 cursor-pointer p-0"
+                    title="Choose custom hex color"
                   />
-                ))}
+                </div>
               </div>
             )}
           </div>

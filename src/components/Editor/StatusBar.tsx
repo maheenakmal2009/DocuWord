@@ -15,6 +15,7 @@ interface StatusBarProps {
   wordCount: number;
   charCount: number;
   onOpenWordCount: () => void;
+  onOpenAutoCorrect?: () => void;
   viewMode: ViewMode;
   onUpdateViewMode: (mode: ViewMode) => void;
   zoomLevel: number;
@@ -25,6 +26,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   wordCount,
   charCount,
   onOpenWordCount,
+  onOpenAutoCorrect,
   viewMode,
   onUpdateViewMode,
   zoomLevel,
@@ -50,12 +52,14 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           English (United States)
         </span>
 
-        <div
-          className="hidden md:flex items-center gap-1 text-white/80 hover:bg-white/10 px-1.5 py-0.5 rounded cursor-default"
-          title="Spelling and grammar check is ready"
+        <button
+          onClick={onOpenAutoCorrect}
+          className="hidden md:flex items-center gap-1 text-white/90 hover:bg-white/10 px-1.5 py-0.5 rounded transition-colors"
+          title="AutoCorrect & Proofing is active. Click to configure replacements."
         >
           <SpellCheck className="w-3.5 h-3.5 text-white/90" />
-        </div>
+          <span className="text-[10px] hidden xl:inline">AutoCorrect: On</span>
+        </button>
 
         <div className="hidden lg:flex items-center gap-1 text-white/70 text-[10px]">
           <HardDrive className="w-3 h-3" />

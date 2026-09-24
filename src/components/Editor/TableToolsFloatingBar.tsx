@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Rows,
   Columns,
@@ -8,15 +8,18 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  Table as TableIcon
+  Table as TableIcon,
+  Palette
 } from 'lucide-react';
 import {
   addTableRow,
   addTableColumn,
   deleteTableRow,
   deleteTableColumn,
-  deleteTable
+  deleteTable,
+  applyTableStyle
 } from '../../utils/editorCommands';
+import { TABLE_STYLE_PRESETS } from '../Modals/InsertTableModal';
 
 interface TableToolsFloatingBarProps {
   isVisible: boolean;
@@ -27,6 +30,8 @@ export const TableToolsFloatingBar: React.FC<TableToolsFloatingBarProps> = ({
   isVisible,
   position
 }) => {
+  const [showStyleMenu, setShowStyleMenu] = useState(false);
+
   if (!isVisible) return null;
 
   return (
@@ -41,6 +46,44 @@ export const TableToolsFloatingBar: React.FC<TableToolsFloatingBarProps> = ({
         <TableIcon className="w-3 h-3 text-blue-400" />
         <span>Table</span>
       </div>
+
+      {/* Quick Style Picker */}
+      <div className="relative">
+        <button
+          onClick={() => setShowStyleMenu(!showStyleMenu)}
+          title="Change Table Theme Style"
+          className="p-1 hover:bg-white/20 rounded text-slate-200 hover:text-white transition-colors flex items-center gap-1 text-[10px]"
+        >
+          <Palette className="w-3 h-3 text-amber-400" />
+          <span>Styles</span>
+        </button>
+
+        {showStyleMenu && (
+          <div
+            className="absolute left-0 bottom-full mb-1 bg-slate-900 border border-slate-700 shadow-xl rounded-md p-1.5 w-44 z-50 text-xs animate-in fade-in"
+            onClick={() => setShowStyleMenu(false)}
+          >
+            <div className="text-[10px] text-slate-400 font-semibold px-1.5 py-0.5 uppercase tracking-wider mb-1">
+              Table Styles
+            </div>
+            {TABLE_STYLE_PRESETS.map((style) => (
+              <button
+                key={style.id}
+                onClick={() => applyTableStyle(style.id)}
+                className="w-full text-left px-2 py-1 hover:bg-white/10 rounded flex items-center gap-2 text-[11px] text-slate-200"
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: style.headerBg }}
+                />
+                <span>{style.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="h-4 w-[1px] bg-slate-700 mx-0.5" />
 
       <button
         onClick={() => addTableRow('above')}

@@ -13,6 +13,35 @@ export function execDocCommand(command: string, value: string | undefined = unde
 }
 
 /**
+ * Apply text highlight / background color across browsers
+ */
+export function applyHighlightColor(color: string): boolean {
+  try {
+    if (color === 'transparent' || color === 'none') {
+      // Remove highlight: in Chrome/WebKit, backColor transparent works; removeFormat also helps
+      const res = document.execCommand('backColor', false, 'transparent');
+      if (!res) {
+        document.execCommand('hiliteColor', false, 'transparent');
+      }
+      return true;
+    }
+    // Try hiliteColor first, fallback to backColor
+    const ok = document.execCommand('hiliteColor', false, color);
+    if (!ok) {
+      return document.execCommand('backColor', false, color);
+    }
+    return true;
+  } catch {
+    try {
+      return document.execCommand('backColor', false, color);
+    } catch (err) {
+      console.error('applyHighlightColor error', err);
+      return false;
+    }
+  }
+}
+
+/**
  * Insert HTML directly at current cursor position
  */
 export function insertHtmlAtCursor(html: string) {
@@ -41,19 +70,19 @@ export function insertHtmlAtCursor(html: string) {
 }
 
 /**
- * Insert a structured table with header row
+ * Insert a structured table with header row and CSS theme class
  */
-export function insertTable(rows: number = 3, cols: number = 3) {
-  let tableHtml = `<table style="width: 100%; border-collapse: collapse; margin: 16px 0;"><thead><tr>`;
+export function insertTable(rows: number = 3, cols: number = 3, styleClass: string = 'tbl-style-blue') {
+  let tableHtml = `<table class="${styleClass}"><thead><tr>`;
   for (let c = 0; c < cols; c++) {
-    tableHtml += `<th style="border: 1px solid #cbd5e1; padding: 8px 12px; background-color: #f1f5f9; font-weight: 600;">Header ${c + 1}</th>`;
+    tableHtml += `<th>Header ${c + 1}</th>`;
   }
   tableHtml += `</tr></thead><tbody>`;
 
   for (let r = 0; r < rows; r++) {
     tableHtml += `<tr>`;
     for (let c = 0; c < cols; c++) {
-      tableHtml += `<td style="border: 1px solid #cbd5e1; padding: 8px 12px;">Cell ${r + 1},${c + 1}</td>`;
+      tableHtml += `<td>Cell ${r + 1},${c + 1}</td>`;
     }
     tableHtml += `</tr>`;
   }
@@ -128,6 +157,193 @@ export function insertLink(url: string, text?: string) {
     insertHtmlAtCursor(linkHtml);
   } else {
     execDocCommand('createLink', url);
+  }
+}
+
+/**
+ * Insert Footnote
+ * Places a superscript reference mark after the selected text/cursor
+ * and adds a corresponding numbered entry in a dedicated footnote section at the bottom of the canvas.
+ */
+export function insertFootnote(customNoteText?: string): boolean {
+  const editor = document.querySelector('.docuword-content') as HTMLElement | null;
+  if (!editor) return false;
+
+  const sel = window.getSelection();
+  let range: Range | null = null;
+  if (sel && sel.rangeCount > 0) {
+    range = sel.getRangeAt(0);
+  }
+
+  // Ensure selection is inside the editor
+  if (!range || !editor.contains(range.commonAncestorContainer)) {
+    const lastP = editor.querySelector('p:last-of-type') || editor;
+    range = document.createRange();
+    range.selectNodeContents(lastP);
+    range.collapse(false);
+  } else {
+    // Place footnote immediately after current cursor or selected text
+    range.collapse(false);
+  }
+
+  // Count existing footnote references
+  const existingRefs = editor.querySelectorAll('.footnote-ref');
+  const nextNum = existingRefs.length + 1;
+
+  // 1. Create superscript footnote reference element in text
+  const supRef = document.createElement('sup');
+  supRef.className = 'footnote-ref';
+  supRef.setAttribute('data-footnote-num', String(nextNum));
+  supRef.id = `ref-footnote-${nextNum}`;
+  supRef.contentEditable = 'false';
+
+  const refLink = document.createElement('a');
+  refLink.href = `#footnote-${nextNum}`;
+  refLink.style.cssText = 'color: #2563eb; text-decoration: none; font-weight: 700; font-size: 0.8em; margin: 0 1.5px; padding: 0 1px; cursor: pointer;';
+  refLink.textContent = `[${nextNum}]`;
+  refLink.title = `Footnote ${nextNum}: Click to jump to note`;
+  refLink.onclick = (e) => {
+    e.preventDefault();
+    const target = editor.querySelector(`#footnote-${nextNum}`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const textSpan = target.querySelector('.footnote-text');
+      if (textSpan) {
+        const s = window.getSelection();
+        const r = document.createRange();
+        r.selectNodeContents(textSpan);
+        s?.removeAllRanges();
+        s?.addRange(r);
+      }
+    }
+  };
+
+  supRef.appendChild(refLink);
+  range.insertNode(supRef);
+
+  // 2. Find or create the dedicated footnotes container at bottom of canvas
+  let footnotesArea = editor.querySelector('.docuword-footnotes-area') as HTMLElement | null;
+  if (!footnotesArea) {
+    footnotesArea = document.createElement('div');
+    footnotesArea.className = 'docuword-footnotes-area';
+    footnotesArea.style.cssText = 'margin-top: 36px; padding-top: 14px; border-top: 1.5px solid #94a3b8; font-size: 9pt; color: #475569; page-break-inside: avoid;';
+
+    const title = document.createElement('div');
+    title.className = 'footnotes-title';
+    title.contentEditable = 'false';
+    title.style.cssText = 'font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 8px; user-select: none;';
+    title.textContent = 'Footnotes';
+    footnotesArea.appendChild(title);
+
+    editor.appendChild(footnotesArea);
+  }
+
+  // 3. Create the footnote item in the footnote section
+  const item = document.createElement('p');
+  item.className = 'footnote-item';
+  item.id = `footnote-${nextNum}`;
+  item.setAttribute('data-footnote-num', String(nextNum));
+  item.style.cssText = 'margin: 5px 0; line-height: 1.45; font-size: 9.5pt; color: #334155; display: flex; align-items: baseline; gap: 6px;';
+
+  const supItem = document.createElement('sup');
+  supItem.contentEditable = 'false';
+  supItem.style.cssText = 'font-weight: 700; color: #2563eb; cursor: pointer; user-select: none; font-size: 0.85em; flex-shrink: 0;';
+
+  const backLink = document.createElement('a');
+  backLink.href = `#ref-footnote-${nextNum}`;
+  backLink.style.cssText = 'color: inherit; text-decoration: none;';
+  backLink.textContent = `${nextNum}.`;
+  backLink.title = 'Jump back to text reference';
+  backLink.onclick = (e) => {
+    e.preventDefault();
+    const target = editor.querySelector(`#ref-footnote-${nextNum}`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+  supItem.appendChild(backLink);
+
+  const textSpan = document.createElement('span');
+  textSpan.className = 'footnote-text';
+  textSpan.contentEditable = 'true';
+  textSpan.style.cssText = 'flex: 1; outline: none; border-bottom: 1px dashed transparent;';
+  textSpan.textContent = customNoteText || 'Type footnote explanation here...';
+
+  // Quick delete button for footnote
+  const delBtn = document.createElement('button');
+  delBtn.contentEditable = 'false';
+  delBtn.className = 'delete-footnote-btn no-print';
+  delBtn.style.cssText = 'color: #94a3b8; font-size: 11px; padding: 0 4px; border-radius: 3px; cursor: pointer; background: transparent; border: none; opacity: 0.6;';
+  delBtn.title = 'Delete this footnote';
+  delBtn.textContent = '×';
+  delBtn.onmouseenter = () => { delBtn.style.opacity = '1'; delBtn.style.color = '#ef4444'; };
+  delBtn.onmouseleave = () => { delBtn.style.opacity = '0.6'; delBtn.style.color = '#94a3b8'; };
+  delBtn.onclick = (e) => {
+    e.preventDefault();
+    item.remove();
+    supRef.remove();
+    renumberFootnotes();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  item.appendChild(supItem);
+  item.appendChild(textSpan);
+  item.appendChild(delBtn);
+  footnotesArea.appendChild(item);
+
+  // 4. Smoothly focus the footnote note text
+  item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  setTimeout(() => {
+    const s = window.getSelection();
+    if (s) {
+      const r = document.createRange();
+      r.selectNodeContents(textSpan);
+      s.removeAllRanges();
+      s.addRange(r);
+    }
+    textSpan.focus();
+  }, 100);
+
+  // Trigger input event to sync React content state
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}
+
+/**
+ * Renumber all footnotes in document sequentially
+ */
+export function renumberFootnotes() {
+  const editor = document.querySelector('.docuword-content') as HTMLElement | null;
+  if (!editor) return;
+
+  const refs = editor.querySelectorAll<HTMLElement>('.footnote-ref');
+  refs.forEach((ref, idx) => {
+    const num = idx + 1;
+    ref.setAttribute('data-footnote-num', String(num));
+    ref.id = `ref-footnote-${num}`;
+    const a = ref.querySelector<HTMLAnchorElement>('a');
+    if (a) {
+      a.href = `#footnote-${num}`;
+      a.textContent = `[${num}]`;
+      a.title = `Footnote ${num}: Click to jump to note`;
+    }
+  });
+
+  const items = editor.querySelectorAll<HTMLElement>('.footnote-item');
+  items.forEach((item, idx) => {
+    const num = idx + 1;
+    item.id = `footnote-${num}`;
+    item.setAttribute('data-footnote-num', String(num));
+    const a = item.querySelector<HTMLAnchorElement>('sup a');
+    if (a) {
+      a.href = `#ref-footnote-${num}`;
+      a.textContent = `${num}.`;
+    }
+  });
+
+  if (refs.length === 0) {
+    const area = editor.querySelector('.docuword-footnotes-area');
+    if (area) area.remove();
   }
 }
 
@@ -242,6 +458,119 @@ export function deleteTable() {
   const { table } = getSelectedTableContext();
   if (!table) return;
   table.remove();
+}
+
+/**
+ * Apply pre-defined CSS table theme class to the currently selected table
+ */
+export function applyTableStyle(styleClassName: string): boolean {
+  const { table } = getSelectedTableContext();
+  if (!table) return false;
+
+  // Remove existing tbl-style-* classes
+  const toRemove: string[] = [];
+  table.classList.forEach((cls) => {
+    if (cls.startsWith('tbl-style-')) toRemove.push(cls);
+  });
+  toRemove.forEach((cls) => table.classList.remove(cls));
+
+  // Clean inline color/border overrides so the CSS theme takes full effect
+  const ths = table.querySelectorAll('th');
+  ths.forEach((th) => {
+    th.style.removeProperty('background-color');
+    th.style.removeProperty('border');
+    th.style.removeProperty('color');
+  });
+  const tds = table.querySelectorAll('td');
+  tds.forEach((td) => {
+    td.style.removeProperty('border');
+  });
+
+  table.classList.add(styleClassName);
+  return true;
+}
+
+/**
+ * Toggle a table style modifier option (e.g. no-header-row, no-striped-rows, banded-cols, first-col-bold, last-col-bold, total-row)
+ */
+export function toggleTableOption(optionClass: string): boolean {
+  const { table } = getSelectedTableContext();
+  if (!table) return false;
+  table.classList.toggle(optionClass);
+  return true;
+}
+
+/**
+ * Set cell shading color for current cell
+ */
+export function setTableCellShading(color: string): boolean {
+  const { td } = getSelectedTableContext();
+  if (!td) return false;
+  if (color === 'transparent') {
+    td.style.removeProperty('background-color');
+  } else {
+    td.style.backgroundColor = color;
+  }
+  return true;
+}
+
+/**
+ * Apply table border themes
+ */
+export function applyTableBorders(borderType: 'all' | 'outer' | 'none'): boolean {
+  const { table } = getSelectedTableContext();
+  if (!table) return false;
+  table.classList.remove('tbl-borders-none', 'tbl-borders-outer');
+  if (borderType === 'none') {
+    table.classList.add('tbl-borders-none');
+  } else if (borderType === 'outer') {
+    table.classList.add('tbl-borders-outer');
+  }
+  return true;
+}
+
+/**
+ * Inspect active table to get its current classes
+ */
+export function getActiveTableInfo(): {
+  isTableSelected: boolean;
+  activeStyle: string;
+  hasHeaderRow: boolean;
+  hasStripedRows: boolean;
+  hasBandedCols: boolean;
+  hasFirstColBold: boolean;
+  hasLastColBold: boolean;
+  hasTotalRow: boolean;
+} {
+  const { table } = getSelectedTableContext();
+  if (!table) {
+    return {
+      isTableSelected: false,
+      activeStyle: 'tbl-style-blue',
+      hasHeaderRow: true,
+      hasStripedRows: true,
+      hasBandedCols: false,
+      hasFirstColBold: false,
+      hasLastColBold: false,
+      hasTotalRow: false
+    };
+  }
+
+  let activeStyle = 'tbl-style-blue';
+  table.classList.forEach((cls) => {
+    if (cls.startsWith('tbl-style-')) activeStyle = cls;
+  });
+
+  return {
+    isTableSelected: true,
+    activeStyle,
+    hasHeaderRow: !table.classList.contains('no-header-row'),
+    hasStripedRows: !table.classList.contains('no-striped-rows'),
+    hasBandedCols: table.classList.contains('banded-cols'),
+    hasFirstColBold: table.classList.contains('first-col-bold'),
+    hasLastColBold: table.classList.contains('last-col-bold'),
+    hasTotalRow: table.classList.contains('total-row')
+  };
 }
 
 /**

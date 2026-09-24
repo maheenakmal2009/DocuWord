@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FileCheck2,
   Hash,
@@ -7,11 +7,19 @@ import {
   CheckCircle2,
   Lock,
   Unlock,
-  SpellCheck
+  SpellCheck,
+  Sparkles
 } from 'lucide-react';
+import {
+  isSpellCheckEnabled,
+  setSpellCheckEnabled,
+  highlightSpellingErrors,
+  clearSpellCheckHighlights
+} from '../../utils/spellCheck';
 
 interface ReviewTabProps {
   onOpenWordCount: () => void;
+  onOpenAutoCorrect?: () => void;
   onAddComment: () => void;
   showComments: boolean;
   onToggleComments: () => void;
@@ -22,6 +30,7 @@ interface ReviewTabProps {
 
 export const ReviewTab: React.FC<ReviewTabProps> = ({
   onOpenWordCount,
+  onOpenAutoCorrect,
   onAddComment,
   showComments,
   onToggleComments,
@@ -29,6 +38,22 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
   isReadOnly,
   onToggleReadOnly
 }) => {
+  const [spellCheckActive, setSpellCheckActive] = useState(isSpellCheckEnabled());
+
+  const handleToggleSpellCheck = () => {
+    const next = !spellCheckActive;
+    setSpellCheckActive(next);
+    setSpellCheckEnabled(next);
+    const editor = document.querySelector('.docuword-content') as HTMLElement | null;
+    if (editor) {
+      if (next) {
+        highlightSpellingErrors(editor);
+      } else {
+        clearSpellCheckHighlights(editor);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-1 px-3 text-slate-700 text-xs">
       {/* Proofing Group */}
@@ -42,10 +67,33 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
           <span className="text-[10px] mt-0.5 whitespace-nowrap">Word Count</span>
         </button>
 
-        <div className="flex flex-col items-center p-1.5 rounded text-emerald-700 bg-emerald-50/60 border border-emerald-200/60">
-          <SpellCheck className="w-4 h-4 text-emerald-600" />
-          <span className="text-[10px] mt-0.5 whitespace-nowrap font-medium">Spelling: Good</span>
-        </div>
+        <button
+          onClick={handleToggleSpellCheck}
+          title={
+            spellCheckActive
+              ? 'Spell Check is ON (Red wavy underlines active). Click to turn off.'
+              : 'Spell Check is OFF. Click to turn on.'
+          }
+          className={`flex flex-col items-center p-1.5 rounded transition-colors ${
+            spellCheckActive
+              ? 'text-emerald-700 bg-emerald-50/80 border border-emerald-300/80 shadow-2xs'
+              : 'text-slate-500 hover:bg-slate-100'
+          }`}
+        >
+          <SpellCheck className={`w-4 h-4 ${spellCheckActive ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <span className="text-[10px] mt-0.5 whitespace-nowrap font-medium">
+            {spellCheckActive ? 'Spell Check: On' : 'Spell Check: Off'}
+          </span>
+        </button>
+
+        <button
+          onClick={onOpenAutoCorrect}
+          title="AutoCorrect Options: Configure typos, abbreviations, and replacements"
+          className="flex flex-col items-center p-1.5 hover:bg-slate-100 rounded text-slate-700 transition-colors"
+        >
+          <Sparkles className="w-4 h-4 text-amber-500" />
+          <span className="text-[10px] mt-0.5 whitespace-nowrap">AutoCorrect</span>
+        </button>
       </div>
 
       {/* Comments Group */}

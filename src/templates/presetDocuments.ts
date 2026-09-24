@@ -27,7 +27,7 @@ export const PRESET_DOCUMENTS: DocumentTemplate[] = [
       <h2>2. Proposed Architecture & Solution</h2>
       <p>By standardizing on a unified cloud-native architecture, Project Apex consolidates transactional tracking, real-time analytics, and automated notification loops into a cohesive, fault-tolerant platform.</p>
 
-      <table>
+      <table class="tbl-style-blue">
         <thead>
           <tr>
             <th>Milestone Phase</th>
@@ -67,7 +67,7 @@ export const PRESET_DOCUMENTS: DocumentTemplate[] = [
       <h2>3. Budget Allocation & Financial Projection</h2>
       <p>The total investment for Project Apex is structured across personnel, infrastructure, and compliance contingencies:</p>
 
-      <table>
+      <table class="tbl-style-blue">
         <thead>
           <tr>
             <th>Category</th>
@@ -203,7 +203,7 @@ export const PRESET_DOCUMENTS: DocumentTemplate[] = [
       <h2>2. Benchmark Methodology</h2>
       <p>We simulated a geographically dispersed cluster of 64 nodes distributed across 8 global data centers. Synthetic workloads were injected at rates ranging from 1,000 to 50,000 transactions per second (TPS).</p>
 
-      <table>
+      <table class="tbl-style-slate">
         <thead>
           <tr>
             <th>Protocol Model</th>
@@ -261,7 +261,7 @@ export const PRESET_DOCUMENTS: DocumentTemplate[] = [
       <p style="color: #64748b; font-size: 0.9rem; margin-top: 0;">Date: October 24, 2026 &bull; Time: 10:00 AM &ndash; 11:30 AM PST &bull; Location: Conference Room Alpha &amp; Hybrid Video</p>
 
       <h2>1. Attendees &amp; Quorum</h2>
-      <table>
+      <table class="tbl-style-emerald">
         <thead>
           <tr>
             <th>Name</th>
@@ -301,7 +301,7 @@ export const PRESET_DOCUMENTS: DocumentTemplate[] = [
       <p>Robert Martinez confirmed that all compliance controls passed external audit with zero non-conformities reported. Final certification documents will be distributed to enterprise customers by month-end.</p>
 
       <h2>3. Action Item Matrix</h2>
-      <table>
+      <table class="tbl-style-emerald">
         <thead>
           <tr>
             <th>Action Task</th>

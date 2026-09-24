@@ -16,7 +16,8 @@ import {
   insertPageBreak,
   insertCallout,
   insertDate,
-  execDocCommand
+  execDocCommand,
+  insertFootnote
 } from '../../utils/editorCommands';
 
 interface InsertTabProps {
@@ -120,6 +121,21 @@ export const InsertTab: React.FC<InsertTabProps> = ({
         >
           <MessageSquarePlus className="w-4 h-4 text-violet-600" />
           <span className="text-[10px] mt-0.5 whitespace-nowrap">New Comment</span>
+        </button>
+      </div>
+
+      {/* Group: References & Footnotes */}
+      <div className="flex items-center gap-1.5 pr-3 border-r border-slate-200">
+        <button
+          onClick={() => insertFootnote()}
+          title="Insert Footnote (Add note reference to selected word with entry at bottom)"
+          className="flex flex-col items-center p-1.5 hover:bg-slate-100 rounded text-slate-700 transition-colors"
+        >
+          <div className="relative flex items-center justify-center">
+            <FileText className="w-4 h-4 text-blue-600" />
+            <span className="absolute -top-1 -right-1 text-[9px] font-bold text-blue-700 bg-blue-50 rounded-full px-0.5 leading-none">¹</span>
+          </div>
+          <span className="text-[10px] mt-0.5 whitespace-nowrap">Insert Footnote</span>
         </button>
       </div>
 
