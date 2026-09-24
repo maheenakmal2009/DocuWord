@@ -1,0 +1,6 @@
+{
+  "name": "DocuWord - Rich Document Processor",
+  "description": "A full-featured Microsoft Word style document editor with ribbon interface, multi-page layout, tables, formatting tools, outline navigation, comments, and export options.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
